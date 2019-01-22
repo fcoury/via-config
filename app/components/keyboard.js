@@ -40,6 +40,7 @@ type Props = {
   clearSelectedKey: (arg: any) => void,
   updateSelectedKey: (val: number) => void,
   updateBrightness: (val: number) => void,
+  updateUnderglowBrightness: (val: number) => void,
   updateLayer: (val: number) => void,
   prevKeyboard: () => Promise<void>,
   nextKeyboard: () => Promise<void>
@@ -151,6 +152,7 @@ export class Keyboard extends Component<Props> {
     const {
       activeLayer,
       lightingData,
+      underglowData,
       selectedKey,
       selectedKeyboard,
       selectedTitle,
@@ -160,6 +162,7 @@ export class Keyboard extends Component<Props> {
       updateLayer,
       loaded,
       updateBrightness,
+      updateUnderglowBrightness,
       matrixKeycodes = []
     } = this.props;
     const device = this.getDevice();
@@ -168,7 +171,7 @@ export class Keyboard extends Component<Props> {
       const {res: selectedLayout, colorMap} = getLayoutFromDevice(device);
       const matrixLayout = MatrixLayout[keyboard.name].layout;
       const showLayer = selectedTitle === Title.KEYS;
-      const showBrightness = selectedTitle === Title.LIGHTING;
+      const showBrightness = selectedTitle === Title.LIGHTING || selectedTitle === Title.UNDERGLOW;
       const useMatrixKeycodes = this.useMatrixKeycodes();
       const clickable = loaded && showLayer;
       let keyCounter = 0;
@@ -223,6 +226,13 @@ export class Keyboard extends Component<Props> {
             <BrightnessControl
               brightness={lightingData.brightness}
               updateBrightness={updateBrightness}
+              showControl={showBrightness}
+            />
+          )}
+          {underglowData && (
+            <BrightnessControl
+              brightness={underglowData.brightness}
+              updateBrightness={updateUnderglowBrightness}
               showControl={showBrightness}
             />
           )}

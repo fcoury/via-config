@@ -4,7 +4,7 @@ import {Link} from 'react-router-dom';
 import styles from './Home.css';
 import {Key} from './Key';
 import {Keyboard} from './keyboard';
-import {DebugMenu, KeycodeMenu, LightingMenu} from './menus';
+import {DebugMenu, KeycodeMenu, LightingMenu, UnderglowMenu} from './menus';
 import {mapEvtToKeycode, getByteForCode, getKeycodes} from '../utils/key';
 import {getKeyboards} from '../utils/hid-keyboards';
 import {getKeyboardFromDevice} from '../utils/device-meta';
@@ -32,6 +32,16 @@ export type LightingData = {
   color1: HIDColor,
   color2: HIDColor
 };
+export type UnderglowData = {
+  rgbMode: number,
+  brightness: number,
+  color1: HIDColor,
+  color2: HIDColor,
+  color3: HIDColor,
+  color4: HIDColor,
+  color5: HIDColor,
+  color6: HIDColor,
+}
 export type MatrixKeycodes = {[path: string]: number[][]};
 type Props = {};
 type State = {
@@ -47,6 +57,7 @@ type State = {
   matrixKeycodes: MatrixKeycodes,
   backlightVersion?: number,
   lightingData: LightingData | null,
+  underglowData: UnderglowData | null,
   progress: number
 };
 
@@ -72,6 +83,7 @@ export default class Home extends React.Component<Props, State> {
       detected: false,
       ready: false,
       lightingData: null,
+      underglowData: null,
       selectedKeyboard: null,
       selectedKey: null,
       selectedTitle: null,
@@ -80,6 +92,7 @@ export default class Home extends React.Component<Props, State> {
       progress: 0
     };
     (this: any).saveLighting = debounce(this.saveLighting.bind(this), 500);
+    (this: any).saveUnderglow = debounce(this.saveUnderglow.bind(this), 500);
     (this: any).updateDevicesRepeat = timeoutRepeater(
       () => this.updateDevices(),
       500,
@@ -107,6 +120,11 @@ export default class Home extends React.Component<Props, State> {
   saveLighting(api: KeyboardAPI) {
     console.log('saving', +new Date());
     if (api) return api.saveLighting();
+  }
+
+  saveUnderglow(api: KeyboardAPI) {
+    console.log('saving', +new Date());
+    if (api) return api.saveUnderglow();
   }
 
   async isCorrectProtocol(selectedKeyboard: Device): Promise<boolean> {
@@ -140,6 +158,36 @@ export default class Home extends React.Component<Props, State> {
         color2
       };
       this.setState({lightingData});
+    }
+  }
+
+  async getCurrentUnderglowSettings(selectedKeyboard: Device) {
+    const api = this.getAPI(selectedKeyboard);
+    if (api) {
+      const promises = [
+        api.getRGBMode(),
+        api.getBrightness(),
+        api.getColor(1),
+        api.getColor(2),
+        api.getColor(3),
+        api.getColor(4),
+        api.getColor(5),
+        api.getColor(6),
+      ];
+      const [
+        rgbMode, brightness, color1, color2, color3, color4, color5, color6
+      ] = await Promise.all(promises);
+      const underglowData = {
+        rgbMode,
+        brightness,
+        color1,
+        color2,
+        color3,
+        color4,
+        color5,
+        color6,
+      };
+      this.setState({underglowData});
     }
   }
 
@@ -354,6 +402,22 @@ export default class Home extends React.Component<Props, State> {
     }
   }
 
+  async toggleUnderglow(selectedKeyboard: Device) {
+    const api = this.getAPI(selectedKeyboard);
+    const keyboard = getKeyboardFromDevice(selectedKeyboard);
+    if (api && keyboard.underglow) {
+      const val = api.getRGBMode();
+      const newVal = val === 0 ? 0 : 9;
+      api.setRGBMode(newVal);
+      api.timeout(200);
+      api.setRGBMode(val);
+      api.timeout(200);
+      api.setRGBMode(newVal);
+      api.timeout(200);
+      await api.setRGBMode(val);
+    }
+  }
+
   async updateFullMatrix(activeLayer: number, selectedKeyboard: Device) {
     const api = this.getAPI(selectedKeyboard);
     const matrixLayout = this.getMatrix(selectedKeyboard);
@@ -386,6 +450,21 @@ export default class Home extends React.Component<Props, State> {
     if (selectedTitle === Title.KEYS) {
       return (
         <KeycodeMenu updateSelectedKey={this.updateSelectedKey.bind(this)} />
+      );
+    } else if (
+      selectedTitle === Title.UNDERGLOW &&
+      api
+    ) {
+      console.log('UNDERGLOW');
+      return (
+        <UnderglowMenu
+          api={api}
+          underglowData={this.state.underglowData}
+          updateColor={this.updateUnderglowColor.bind(this, api)}
+          updateRGBMode={this.updateUnderglowRGBMode.bind(this, api)}
+          saveUnderglow={() => api && this.saveUnderglow(api)}
+          setRGBMode={this.setRGBMode.bind(this)}
+        />
       );
     } else if (
       selectedTitle === Title.LIGHTING &&
@@ -435,6 +514,7 @@ export default class Home extends React.Component<Props, State> {
       const protocolCorrect = await this.isCorrectProtocol(selectedKeyboard);
       if (protocolCorrect) {
         await this.toggleLights(selectedKeyboard);
+        await this.toggleUnderglow(selectedKeyboard);
         await this.updateKeyboardLightingAndMatrixData(selectedKeyboard);
         this.setLoaded();
       }
@@ -451,6 +531,7 @@ export default class Home extends React.Component<Props, State> {
       if (backlightVersion !== BACKLIGHT_PROTOCOL_NONE) {
         await this.getCurrentLightingSettings(selectedKeyboard);
       }
+      await this.getCurrentUnderglowSettings(selectedKeyboard);
       this.setProgress(0.05);
       await this.updateFullMatrix(0, selectedKeyboard);
       await this.updateFullMatrix(1, selectedKeyboard);
@@ -479,6 +560,18 @@ export default class Home extends React.Component<Props, State> {
     if (selectedKeyboard) {
       this.updateFullMatrix(activeLayer, selectedKeyboard);
     }
+  }
+
+  updateUnderglowBrightness(api: KeyboardAPI, brightness: number) {
+    const {underglowData} = this.state;
+    this.setState({
+      underglowData: {
+        ...underglowData,
+        brightness
+      }
+    });
+    api.setBrightness(brightness);
+    this.saveLighting(api);
   }
 
   updateBrightness(api: KeyboardAPI, brightness: number) {
@@ -514,6 +607,18 @@ export default class Home extends React.Component<Props, State> {
     this.saveLighting(api);
   }
 
+  updateUnderglowColor(api: KeyboardAPI, num: number, hue: number, sat: number) {
+    const {underglowData} = this.state;
+    const key = `color${num}`;
+    this.setState({
+      underglowData: {...underglowData, [key]: {hue, sat}}
+    });
+    api.setColor(num, hue, sat);
+    this.saveUnderglow(api);
+  }
+
+
+
   updateRGBMode(api: KeyboardAPI, rgbMode: number) {
     const {lightingData} = this.state;
     this.setState({
@@ -526,6 +631,18 @@ export default class Home extends React.Component<Props, State> {
     this.saveLighting(api);
   }
 
+  updateUnderglowRGBMode(api: KeyboardAPI, rgbMode: number) {
+    const {underglowData} = this.state;
+    this.setState({
+      underglowData: {
+        ...underglowData,
+        rgbMode
+      }
+    });
+    api.setRGBMode(rgbMode);
+    this.saveUnderglow(api);
+  }
+
   render() {
     const {
       activeLayer,
@@ -534,6 +651,7 @@ export default class Home extends React.Component<Props, State> {
       loaded,
       backlightVersion,
       lightingData,
+      underglowData,
       ready,
       progress,
       selectedKey,
@@ -568,6 +686,7 @@ export default class Home extends React.Component<Props, State> {
                 activeLayer
               )}
               lightingData={lightingData}
+              underglowData={underglowData}
               clearSelectedKey={this.clearSelectedKey.bind(this)}
               updateSelectedKey={this.setSelectedKey.bind(this)}
               setReady={this.setReady.bind(this)}
@@ -576,6 +695,9 @@ export default class Home extends React.Component<Props, State> {
               updateBrightness={brightness =>
                 api && this.updateBrightness(api, brightness)
               }
+              updateUnderglowBrightness={brightness => {
+                api && this.updateUnderglowBrightness(api, brightness)
+              }}
               showCarouselButtons={this.state.keyboards.length > 1}
               prevKeyboard={() => this.offsetKeyboard(-1)}
               nextKeyboard={() => this.offsetKeyboard(1)}

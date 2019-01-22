@@ -8,6 +8,7 @@ import {
 export const Title = {
   KEYS: 'Keys',
   LIGHTING: 'Lighting',
+  UNDERGLOW: 'Underglow',
   DEBUG: 'Debug'
 };
 
@@ -30,6 +31,9 @@ export class TitleBar extends Component {
       )
     ) {
       titles = [...titles, Title.LIGHTING];
+    }
+    if (this.props.getKeyboard().underglow) {
+      titles = [...titles, Title.UNDERGLOW];
     }
     if (
       process.env.NODE_ENV === 'development' ||

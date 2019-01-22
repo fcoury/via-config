@@ -22,7 +22,8 @@ import {
   LAYOUT_PLAIN60,
   LAYOUT_268_2,
   LAYOUT_IRIS,
-  LAYOUT_SNAGPAD
+  LAYOUT_SNAGPAD,
+  LAYOUT_DZ60,
 } from './kle-parser';
 
 export type Device = {
@@ -145,7 +146,13 @@ export const DEVICE_META_MAP: DeviceMetaMap = {
     name: 'Snagpad',
     layout: LAYOUT_SNAGPAD,
     lights: false
-  }
+  },
+  [0xFEED2260]: {
+    name: 'DZ60',
+    layout: LAYOUT_DZ60,
+    lights: false,
+    underglow: true,
+  },
 };
 
 const COMPILED_DEVICE_META_MAP = Object.entries(DEVICE_META_MAP).reduce(

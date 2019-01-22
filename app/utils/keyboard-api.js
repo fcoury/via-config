@@ -315,6 +315,10 @@ void *dynamic_keymap_key_to_eeprom_address(uint8_t layer, uint8_t row, uint8_t c
     await this.hidCommand(BACKLIGHT_CONFIG_SAVE);
   }
 
+  async saveUnderglow() {
+    await this.hidCommand(BACKLIGHT_CONFIG_SAVE);
+  }
+
   async resetEEPROM() {
     const bytes = [];
     await this.hidCommand(EEPROM_RESET);

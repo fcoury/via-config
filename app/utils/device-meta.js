@@ -24,6 +24,7 @@ import {
   LAYOUT_IRIS,
   LAYOUT_SNAGPAD,
   LAYOUT_DZ60,
+  LAYOUT_AANZEE
 } from './kle-parser';
 
 export type Device = {
@@ -153,6 +154,11 @@ export const DEVICE_META_MAP: DeviceMetaMap = {
     lights: false,
     underglow: true,
   },
+  [0x21FFAA01]: {
+    name: 'aanzee',
+    layout: LAYOUT_AANZEE,
+    lights: false
+  }
 };
 
 const COMPILED_DEVICE_META_MAP = Object.entries(DEVICE_META_MAP).reduce(
